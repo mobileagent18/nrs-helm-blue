@@ -1,0 +1,52 @@
+{{- $fullName := .Values.appName -}}
+{{ if .Values.blue.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "blue-green.fullname" . }}-blue
+  labels:
+    release: {{ $fullName }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app: {{ template "blue-green.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "blue-green.name" . }}
+      release: {{ $fullName }}
+      slot: blue
+  template:
+    metadata:
+      labels:
+        app: {{ template "blue-green.name" . }}
+        release: {{ $fullName }}
+        slot: blue
+    spec:
+      containers:
+        - name: {{ template "blue-green.name" . }}-blue
+          image: {{ .Values.blue.image }}:{{ .Values.blue.version }}
+          #imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
+          #env:
+          #  - name: CONTEXT_ROOT
+          #    value: {{ .Values.ingress.contextroot }}
+          ports:
+            - name: http
+              containerPort: 9080
+              protocol: TCP
+          # This (and the volumes section below) mount the config map as a volume.
+          volumeMounts:
+            - mountPath: /config/properties
+              name: environment-volume
+            - mountPath: /config/resources/security/keystore
+              name: cert-volume
+      imagePullSecrets:
+        - name: {{ .Values.regsecret }}
+      volumes:
+        - name: environment-volume
+          configMap:
+            name: {{ $fullName }}-blue
+        - name: cert-volume
+          secret:
+            secretName: {{ $fullName }}-blue
+{{ end }}
